@@ -1,0 +1,19 @@
+﻿namespace GeometryConsole.Models
+{
+    public class Line
+    {
+        public Point Start { get; }
+        public Point End { get; }
+
+        public Line(Point start, Point end)
+        {
+            Start = start;
+            End = end;
+        }
+
+        public override string ToString()
+        {
+            return $"Line({Start}, {End})";
+        }
+    }
+}
