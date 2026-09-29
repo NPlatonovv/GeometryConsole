@@ -1,87 +1,124 @@
-﻿using GeometryConsole.Services;
+﻿using System.CommandLine;
+using GeometryConsole.Models;
+using GeometryConsole.Services;
 
 namespace GeometryConsole;
 
 public class Program
 {
-    public static void Main(string[] args)
+    public static int Main(string[] args)
     {
-        string? filePath = null;
-        string? operation = null;
-
-        for (int i = 0; i < args.Length; i++)
+        Option<string?> fileOption = new("--file", "-f")
         {
-            switch (args[i])
+            Description = "Путь к файлу"
+        };
+
+        Option<string?> operationOption = new("--oper", "-o")
+        {
+            Description = "Операция: print или count"
+        };
+
+        Option<string?> logOption = new("--log")
+        {
+            Description = "Файл для записи ошибок"
+        };
+
+        RootCommand rootCommand = new(
+            "Geometry Console Utility");
+
+        rootCommand.Options.Add(fileOption);
+        rootCommand.Options.Add(operationOption);
+        rootCommand.Options.Add(logOption);
+
+        rootCommand.SetAction(
+            parseResult =>
             {
-                case "-f":
-                case "--file":
-                    if (i + 1 >= args.Length)
-                    {
-                        Console.WriteLine(
-                            "Ошибка: после -f необходимо указать путь к файлу.");
+                string? filePath =
+                    parseResult.GetValue(fileOption);
 
-                        return;
-                    }
+                string? operation =
+                    parseResult.GetValue(operationOption);
 
-                    filePath = args[++i];
-                    break;
+                string? logPath =
+                    parseResult.GetValue(logOption);
 
-                case "-o":
-                case "--oper":
-                    if (i + 1 >= args.Length)
-                    {
-                        Console.WriteLine(
-                            "Ошибка: после -o необходимо указать операцию.");
+                RunProgram(
+                    filePath,
+                    operation,
+                    logPath);
+            });
 
-                        return;
-                    }
+        return rootCommand.Parse(args).Invoke();
+    }
 
-                    operation = args[++i].ToLowerInvariant();
-                    break;
+    private static void RunProgram(
 
-                default:
-                    Console.WriteLine(
-                        $"Ошибка: неизвестный аргумент {args[i]}.");
+        string? filePath,
+        string? operation,
+        string? logPath)
+    {
+        if (logPath != null)
+        {
+            SettingsManager.Save(
+                new AppSettings
+                {
+                    LogPath = logPath
+                });
+        }
+        else
+        {
+            AppSettings? settings =
+                SettingsManager.Load();
 
-                    return;
+            if (settings != null)
+            {
+                logPath = settings.LogPath;
             }
         }
 
         if (string.IsNullOrWhiteSpace(filePath))
         {
-            Console.WriteLine(
-                "Ошибка: необходимо указать файл через -f или --file.");
+            Logger.Error(
+                "Ошибка: необходимо указать файл через -f или --file.",
+                logPath);
 
             return;
         }
 
         if (string.IsNullOrWhiteSpace(operation))
         {
-            Console.WriteLine(
-                "Ошибка: необходимо указать операцию через -o или --oper.");
+            Logger.Error(
+                "Ошибка: необходимо указать операцию через -o или --oper.",
+                logPath);
 
             return;
         }
 
-        if (operation != "print" && operation != "count")
+        operation = operation.ToLowerInvariant();
+
+        if (operation != "print" &&
+            operation != "count")
         {
-            Console.WriteLine(
-                "Ошибка: допустимые операции: print, count.");
+            Logger.Error(
+                "Ошибка: допустимые операции: print, count.",
+                logPath);
 
             return;
         }
 
         if (!File.Exists(filePath))
         {
-            Console.WriteLine(
-                $"Ошибка: файл не найден: {filePath}");
+            Logger.Error(
+                $"Ошибка: файл не найден: {filePath}",
+                logPath);
 
             return;
         }
 
         try
         {
-            List<object> figures = FileService.ReadFigures(filePath);
+            List<object> figures =
+                FileService.ReadFigures(filePath);
 
             switch (operation)
             {
@@ -102,18 +139,21 @@ public class Program
         }
         catch (IOException ex)
         {
-            Console.WriteLine(
-                $"Ошибка чтения файла: {ex.Message}");
+            Logger.Error(
+                $"Ошибка чтения файла: {ex.Message}",
+                logPath);
         }
         catch (UnauthorizedAccessException)
         {
-            Console.WriteLine(
-                "Ошибка: нет доступа к файлу.");
+            Logger.Error(
+                "Ошибка: нет доступа к файлу.",
+                logPath);
         }
         catch (Exception ex)
         {
-            Console.WriteLine(
-                $"Произошла ошибка: {ex.Message}");
+            Logger.Error(
+                $"Произошла ошибка: {ex.Message}",
+                logPath);
         }
     }
 }
